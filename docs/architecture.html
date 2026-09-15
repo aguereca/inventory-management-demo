@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Factory Inventory Management — System Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#141a21;
+    --steel:#5b6a7a;
+    --rule:#d5dbe1;
+    --panel:#eef1f4;
+    --paper:#ffffff;
+    --amber:#f2b118;
+    --alarm:#a92b1f;
+
+    --sans:"IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --cond:"IBM Plex Sans Condensed","IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+
+    --datum:clamp(20px,5vw,72px);
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font:400 16px/1.6 var(--sans);
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:0 var(--datum)}
+
+  /* ---- masthead: the plate on the side of the machine ---- */
+  .plate{border-bottom:3px solid var(--ink);padding:56px 0 0}
+  .plate h1{
+    font:700 clamp(34px,6.2vw,68px)/0.98 var(--cond);
+    margin:0 0 14px;letter-spacing:-0.015em;
+  }
+  .plate h1 span{display:block;color:var(--steel);font-weight:600}
+  .plate p{max-width:64ch;margin:0 0 34px;color:var(--steel);font-size:17px}
+
+  .spec{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));
+    border-top:1px solid var(--rule);
+  }
+  .spec div{padding:14px 16px 16px 0;border-right:1px solid var(--rule)}
+  .spec div:last-child{border-right:0}
+  .spec dt{font-size:12.5px;color:var(--steel);margin:0 0 4px}
+  .spec dd{margin:0;font:600 24px/1.1 var(--cond);font-variant-numeric:tabular-nums}
+
+  /* ---- sections ---- */
+  section{padding:64px 0;border-bottom:1px solid var(--rule)}
+  h2{
+    font:600 clamp(23px,3vw,31px)/1.15 var(--cond);
+    margin:0 0 6px;letter-spacing:-0.01em;
+  }
+  .lede{max-width:68ch;margin:0 0 34px;color:var(--steel)}
+  h3{font:600 16px/1.3 var(--sans);margin:30px 0 10px}
+  p{max-width:68ch}
+
+  code,.mono{font:500 13.5px/1.5 var(--mono)}
+  code{background:var(--panel);padding:1px 5px;border-radius:2px;white-space:nowrap}
+
+  /* ---- hero schematic: stations along a line ---- */
+  .flow{margin:0;overflow-x:auto;padding-bottom:6px}
+  .flowline{display:block;width:100%;min-width:860px;height:34px}
+  .flowline .track{stroke:var(--rule);stroke-width:2}
+  .flowline .live{
+    stroke:var(--amber);stroke-width:4;stroke-linecap:square;
+    stroke-dasharray:1000;stroke-dashoffset:1000;
+    animation:draw 1.4s .15s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  @keyframes draw{to{stroke-dashoffset:0}}
+  @media (prefers-reduced-motion:reduce){
+    .flowline .live{animation:none;stroke-dashoffset:0}
+  }
+  .flowline .pin{fill:var(--ink)}
+
+  .stations{
+    display:grid;grid-template-columns:repeat(8,1fr);gap:0;
+    min-width:860px;list-style:none;margin:0;padding:0;
+  }
+  .stations li{padding:0 14px 0 0}
+  .stations .n{
+    font:500 12px/1 var(--mono);color:var(--steel);
+    display:block;margin-bottom:7px;font-variant-numeric:tabular-nums;
+  }
+  .stations .what{font:600 14.5px/1.25 var(--sans);display:block;margin-bottom:5px}
+  .stations .where{font:400 12px/1.45 var(--mono);color:var(--steel);display:block}
+
+  /* ---- layer bands ---- */
+  .bands{display:grid;gap:2px;background:var(--rule);border:1px solid var(--rule)}
+  .band{background:var(--paper);display:grid;grid-template-columns:150px 1fr;gap:0}
+  .band>.tag{
+    background:var(--panel);padding:18px 16px;
+    font:600 14px/1.25 var(--cond);border-right:1px solid var(--rule);
+  }
+  .band>.tag em{display:block;font:400 11.5px/1.4 var(--mono);color:var(--steel);font-style:normal;margin-top:5px}
+  .band>.body{padding:18px 18px}
+  .band>.body p{margin:0 0 8px;font-size:14.5px}
+  .band>.body p:last-child{margin-bottom:0}
+  .band>.body .files{font:400 12.5px/1.8 var(--mono);color:var(--steel)}
+
+  /* ---- tables: bill of materials idiom ---- */
+  .sheet{width:100%;border-collapse:collapse;font-size:14px}
+  .sheet caption{text-align:left;color:var(--steel);font-size:13px;padding-bottom:10px}
+  .sheet th{
+    text-align:left;font:600 12.5px/1.3 var(--sans);color:var(--steel);
+    border-bottom:2px solid var(--ink);padding:0 14px 8px 0;vertical-align:bottom;
+  }
+  .sheet td{border-bottom:1px solid var(--rule);padding:9px 14px 9px 0;vertical-align:top}
+  .sheet tr:last-child td{border-bottom:0}
+  .sheet .r{font-variant-numeric:tabular-nums}
+  .sheet td.m,.sheet th.m{font-family:var(--mono);font-size:13px}
+  .scroll{overflow-x:auto}
+  .scroll .sheet{min-width:660px}
+
+  .ok{color:var(--steel)}
+  .dead{color:var(--alarm);font-weight:600}
+  .mark{background:var(--amber);color:var(--ink);padding:1px 6px;border-radius:2px;font-weight:600;white-space:nowrap}
+
+  /* ---- findings ---- */
+  .finds{list-style:none;margin:0;padding:0;counter-reset:f}
+  .finds>li{
+    border-top:1px solid var(--rule);padding:22px 0 22px 0;
+    display:grid;grid-template-columns:34px 1fr;gap:0 16px;
+  }
+  .finds>li:first-child{border-top:2px solid var(--ink)}
+  .finds .sev{
+    width:22px;height:22px;border-radius:50%;background:var(--panel);
+    display:grid;place-items:center;font:500 11.5px/1 var(--mono);
+    color:var(--steel);margin-top:2px;
+  }
+  .finds .sev.hi{background:var(--alarm);color:#fff}
+  .finds .sev.mid{background:var(--amber);color:var(--ink)}
+  .finds h3{margin:0 0 7px;font-size:16.5px}
+  .finds p{margin:0 0 7px;font-size:14.5px}
+  .finds .cite{font:400 12.5px/1.6 var(--mono);color:var(--steel)}
+
+  .runbox{
+    background:var(--ink);color:#e7ecf1;padding:22px 22px;
+    font:400 13px/1.9 var(--mono);overflow-x:auto;margin:0;
+  }
+  .runbox b{color:var(--amber);font-weight:500}
+
+  footer{padding:40px 0 64px;color:var(--steel);font-size:13.5px}
+  footer p{max-width:72ch}
+
+  a{color:var(--ink);text-decoration-thickness:1px;text-underline-offset:2px}
+  a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+  @media (max-width:720px){
+    .band{grid-template-columns:1fr}
+    .band>.tag{border-right:0;border-bottom:1px solid var(--rule);display:flex;gap:10px;align-items:baseline}
+    .band>.tag em{margin:0}
+    .spec div{border-right:0;border-bottom:1px solid var(--rule)}
+    section{padding:48px 0}
+  }
+</style>
+</head>
+<body>
+
+<header class="plate">
+  <div class="wrap">
+    <h1>Factory Inventory<br>Management<span>System architecture</span></h1>
+    <p>A demo application that reads inventory, orders, spending and backlog data for three
+       warehouses and presents it through six filtered views. Everything is served from JSON
+       files held in memory — there is no database, and the single write route appends to that
+       memory rather than to disk.</p>
+    <dl class="spec">
+      <div><dt>Frontend</dt><dd>Vue 3</dd></div>
+      <div><dt>Backend</dt><dd>FastAPI</dd></div>
+      <div><dt>Store</dt><dd>7 JSON files</dd></div>
+      <div><dt>Read routes</dt><dd>14</dd></div>
+      <div><dt>Write routes</dt><dd>1</dd></div>
+      <div><dt>Source lines</dt><dd>9,625</dd></div>
+    </dl>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>What happens when a filter changes</h2>
+    <p class="lede">One path carries almost every screen in the app. Change a dropdown in the
+      filter bar and the same eight stations run in order, ending at a JSON file read into
+      memory at import time.</p>
+
+    <div class="flow">
+      <svg class="flowline" viewBox="0 0 880 34" preserveAspectRatio="none" aria-hidden="true">
+        <line class="track" x1="4" y1="17" x2="876" y2="17"/>
+        <line class="live"  x1="4" y1="17" x2="876" y2="17"/>
+        <g class="pin">
+          <rect x="2"   y="11" width="4" height="12"/>
+          <rect x="112" y="11" width="4" height="12"/>
+          <rect x="222" y="11" width="4" height="12"/>
+          <rect x="332" y="11" width="4" height="12"/>
+          <rect x="442" y="11" width="4" height="12"/>
+          <rect x="552" y="11" width="4" height="12"/>
+          <rect x="662" y="11" width="4" height="12"/>
+          <rect x="772" y="11" width="4" height="12"/>
+        </g>
+      </svg>
+
+      <ol class="stations">
+        <li><span class="n">1</span><span class="what">Filter bar</span><span class="where">FilterBar.vue</span></li>
+        <li><span class="n">2</span><span class="what">Shared filter state</span><span class="where">useFilters.js</span></li>
+        <li><span class="n">3</span><span class="what">View reacts</span><span class="where">watch() in views</span></li>
+        <li><span class="n">4</span><span class="what">Query string built</span><span class="where">api.js</span></li>
+        <li><span class="n">5</span><span class="what">HTTP via axios</span><span class="where">localhost:8001/api</span></li>
+        <li><span class="n">6</span><span class="what">List comprehension filter</span><span class="where">apply_filters()</span></li>
+        <li><span class="n">7</span><span class="what">Pydantic validates</span><span class="where">response_model</span></li>
+        <li><span class="n">8</span><span class="what">Computed properties render</span><span class="where">computed() in views</span></li>
+      </ol>
+    </div>
+
+    <h3>Why the state lives in a module, not a store</h3>
+    <p><code>useFilters.js</code> declares its four refs at module scope, outside the exported
+      function. Every importer therefore shares one instance — a singleton by module caching
+      rather than by Pinia or Vuex. Seven files import it, and the filter bar mutates the same
+      refs the views watch.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Layers</h2>
+    <p class="lede">Two processes, started separately, talking over CORS-opened HTTP on
+      localhost. Vite serves the client on port 3000; uvicorn serves the API on 8001. There is
+      no dev proxy, so the API origin is hardcoded in the client.</p>
+
+    <div class="bands">
+      <div class="band">
+        <div class="tag">Views<em>7 files</em></div>
+        <div class="body">
+          <p>One per route, each owning its own data loading and its own <code>watch()</code> on the shared filters.
+             Dashboard is the largest at 1,271 lines.</p>
+          <p class="files">Dashboard · Inventory · Orders · Demand · Spending · Reports · Backlog</p>
+        </div>
+      </div>
+      <div class="band">
+        <div class="tag">Components<em>9 files</em></div>
+        <div class="body">
+          <p>Chrome and detail modals. Nothing here calls the API directly — the parent view or
+             <code>App.vue</code> fetches and passes data down. Dashboard renders a tenth modal,
+             <code>PurchaseOrderModal</code>, for which no file exists.</p>
+          <p class="files">FilterBar · ProfileMenu · LanguageSwitcher · TasksModal · ProfileDetailsModal · InventoryDetailModal · ProductDetailModal · BacklogDetailModal · CostDetailModal</p>
+        </div>
+      </div>
+      <div class="band">
+        <div class="tag">Composables<em>3 files</em></div>
+        <div class="body">
+          <p>Module-scope singletons for cross-cutting state: the four filters, the signed-in user
+             (hardcoded, always authenticated), and locale with its derived currency.</p>
+          <p class="files">useFilters.js · useAuth.js · useI18n.js</p>
+        </div>
+      </div>
+      <div class="band">
+        <div class="tag">Localisation<em>2 locales</em></div>
+        <div class="body">
+          <p>English and Japanese key trees with English fallback on a missing key. Locale also
+             selects currency — <code>ja</code> renders yen at a fixed rate of 150 defined in
+             <code>utils/currency.js</code>, so converted figures are illustrative, not live.</p>
+          <p class="files">locales/en.js · locales/ja.js</p>
+        </div>
+      </div>
+      <div class="band">
+        <div class="tag">API<em>309 lines</em></div>
+        <div class="body">
+          <p>A single FastAPI module. Two helpers do all the filtering as list comprehensions over
+             Python lists; Pydantic models validate what goes out. Quarterly and monthly report
+             figures are aggregated per request rather than precomputed.</p>
+          <p class="files">server/main.py</p>
+        </div>
+      </div>
+      <div class="band">
+        <div class="tag">Data<em>7 files</em></div>
+        <div class="body">
+          <p>Read from disk once at import and held in module-level lists. Mutating them would not
+             survive a restart, and nothing mutates them.</p>
+          <p class="files">orders 250 · transactions 56 · inventory 32 · demand_forecasts 9 · backlog_items 4 · spending 3 groups · purchase_orders 0</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Dependencies</h2>
+    <p class="lede">Declared ranges and what is actually resolved in this checkout. The gap is widest on the
+      Python side because <code>pyproject.toml</code> floors every dependency without
+      ceilings and no lockfile is committed.</p>
+
+    <div class="scroll">
+      <table class="sheet">
+        <caption>Declared in client/package.json and server/pyproject.toml; installed as resolved locally.</caption>
+        <thead>
+          <tr><th>Package</th><th>Role</th><th class="m">Declared</th><th class="m">Installed</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>vue</td><td class="ok">Reactivity and components, Composition API throughout</td><td class="m">^3.4.21</td><td class="m">3.5.42</td></tr>
+          <tr><td>vue-router</td><td class="ok">Six client routes, HTML5 history mode</td><td class="m">^4.3.0</td><td class="m">4.6.4</td></tr>
+          <tr><td>axios</td><td class="ok">Every HTTP call</td><td class="m">^1.6.7</td><td class="m">1.20.0</td></tr>
+          <tr><td>vite</td><td class="ok">Dev server on port 3000, build</td><td class="m">^5.2.0</td><td class="m">5.4.21</td></tr>
+          <tr><td>fastapi</td><td class="ok">Routing, validation, OpenAPI docs</td><td class="m">&gt;=0.110.0</td><td class="m">0.141.1</td></tr>
+          <tr><td>uvicorn</td><td class="ok">ASGI server on port 8001</td><td class="m">&gt;=0.24.0</td><td class="m">0.53.0</td></tr>
+          <tr><td>pydantic</td><td class="ok">Response models</td><td class="m">&gt;=2.5.0</td><td class="m">2.13.5</td></tr>
+          <tr><td>pytest</td><td class="ok">40 backend tests, all passing</td><td class="m">&gt;=8.0.0</td><td class="m">9.1.1</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>No frontend test runner</h3>
+    <p><code>client/package.json</code> defines only <code>dev</code>, <code>build</code> and
+      <code>preview</code>. The 40 tests in <code>tests/backend/</code> cover the API; the 7,344
+      lines of Vue are untested, and the component-testing guidance in
+      <code>client/CLAUDE.md</code> describes a setup that is not installed.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>API surface</h2>
+    <p class="lede">Fifteen routes — fourteen <code>GET</code> and one <code>POST</code>. Four filters exist, but no single route
+      honours all four: inventory has no time dimension, and the reports and spending routes take
+      no filters at all.</p>
+
+    <div class="scroll">
+      <table class="sheet">
+        <thead>
+          <tr><th class="m">Route</th><th>Filters honoured</th><th>Called from</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="m">/api/inventory</td><td class="ok">warehouse, category</td><td class="ok">Inventory, Dashboard, Demand, Backlog</td></tr>
+          <tr><td class="m">/api/inventory/{id}</td><td class="ok">—</td><td class="ok">api.js only</td></tr>
+          <tr><td class="m">/api/orders</td><td class="ok">warehouse, category, status, month</td><td class="ok">Orders, Dashboard, Spending</td></tr>
+          <tr><td class="m">/api/orders/{id}</td><td class="ok">—</td><td class="ok">api.js only</td></tr>
+          <tr><td class="m">/api/dashboard/summary</td><td class="ok">all four</td><td class="ok">Dashboard</td></tr>
+          <tr><td class="m">/api/demand</td><td class="ok">none</td><td class="ok">Demand</td></tr>
+          <tr><td class="m">/api/backlog</td><td class="ok">none</td><td class="ok">Backlog, Dashboard</td></tr>
+          <tr><td class="m">/api/spending/summary</td><td class="ok">none</td><td class="ok">Spending</td></tr>
+          <tr><td class="m">/api/spending/monthly</td><td class="ok">none</td><td class="ok">Spending</td></tr>
+          <tr><td class="m">/api/spending/categories</td><td class="ok">none</td><td class="ok">Spending</td></tr>
+          <tr><td class="m">/api/spending/transactions</td><td class="ok">none</td><td class="ok">Spending</td></tr>
+          <tr><td class="m">/api/reports/quarterly</td><td class="ok">none</td><td class="ok">Reports, <span class="mark">bypassing api.js</span></td></tr>
+          <tr><td class="m">/api/reports/monthly-trends</td><td class="ok">none</td><td class="ok">Reports, <span class="mark">bypassing api.js</span></td></tr>
+          <tr><td class="m">/</td><td class="ok">—</td><td class="ok">nothing</td></tr>
+          <tr><td class="m dead">/api/tasks</td><td class="dead">route does not exist</td><td class="ok">App.vue, four methods</td></tr>
+          <tr><td class="m dead">/api/purchase-orders</td><td class="dead">route does not exist</td><td class="ok">api.js only</td></tr>
+          <tr><td class="m">/api/orders/restock <span class="mark">POST</span></td><td class="ok">—</td><td class="ok">Restocking</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Seams worth knowing before you change anything</h2>
+    <p class="lede">Found by reading the code against the running servers and probing each route.
+      Ordered by what would bite you first.</p>
+
+    <ol class="finds">
+      <li>
+        <div class="sev hi" aria-hidden="true">1</div>
+        <div>
+          <h3>Adding a task silently does nothing</h3>
+          <p>The client ships four task methods and two purchase-order methods against routes the
+            API never declares. All six return 404 when probed against the running server; the
+            backend has zero non-GET routes.</p>
+          <p><code>App.vue</code> calls <code>api.createTask()</code>, catches the failure, logs
+            it to the console and returns. No error surfaces, and the new task never appears.
+            Delete and toggle only appear to work because they short-circuit on the four
+            hardcoded tasks in <code>useAuth.js</code> before reaching the network.</p>
+          <p class="cite">client/src/api.js:77–104 · client/src/App.vue:97–105 · client/src/composables/useAuth.js:26</p>
+        </div>
+      </li>
+      <li>
+        <div class="sev hi" aria-hidden="true">2</div>
+        <div>
+          <h3>Dashboard renders a component that does not exist</h3>
+          <p><code>Dashboard.vue</code> renders <code>&lt;PurchaseOrderModal&gt;</code> with three
+            props and two event handlers. There is no such file in
+            <code>client/src/components/</code>, and it is neither imported nor registered — the
+            imports stop at <code>BacklogDetailModal</code>. Vue treats an unresolved component as
+            a no-op, so it logs a warning and renders nothing rather than failing, which is why the
+            page looks intact. Confirmed in the browser console on a clean dashboard load.</p>
+          <p>Everything around it was built: the state
+            (<code>showPOModal</code>, <code>selectedBacklogForPO</code>, <code>poModalMode</code>)
+            and the <code>handlePOCreated</code> handler all exist. Only the component and the
+            route are missing.</p>
+          <p>On the server side the same feature stops short.
+            <code>CreatePurchaseOrderRequest</code> is defined and never referenced by a route, and
+            <code>purchase_orders.json</code> holds zero records — so because
+            <code>/api/backlog</code> derives <code>has_purchase_order</code> by matching against
+            that empty list, the flag is always false and the branch behind it is unreachable.</p>
+          <p class="cite">client/src/views/Dashboard.vue:289–295, 305–312, 665 · server/main.py:115 · server/main.py:172–178 · server/data/purchase_orders.json</p>
+        </div>
+      </li>
+      <li>
+        <div class="sev mid" aria-hidden="true">3</div>
+        <div>
+          <h3>Quarter filtering exists only on the server</h3>
+          <p><code>QUARTER_MAP</code> resolves <code>Q1-2025</code> through <code>Q4-2025</code>,
+            but the filter bar offers only the twelve months plus “all”, and no client code emits
+            a quarter value. The capability is reachable through the API but not the UI.</p>
+          <p>The same helper also fails open: a <code>Q</code>-prefixed value that is not in the
+            map falls through and returns the list unfiltered, so a typo yields every record
+            rather than none.</p>
+          <p class="cite">server/main.py:10–15 · server/main.py:26–31 · client/src/components/FilterBar.vue:7–20</p>
+        </div>
+      </li>
+      <li>
+        <div class="sev mid" aria-hidden="true">4</div>
+        <div>
+          <h3>Reports bypasses the API client</h3>
+          <p>Six views go through <code>api.js</code>; Reports imports axios and hardcodes
+            <code>http://localhost:8001</code> twice. It is also the only view with no
+            <code>watch()</code> on the shared filters, so it ignores the filter bar entirely.
+            Changing the API origin now means editing two files.</p>
+          <p class="cite">client/src/views/Reports.vue:128, 156, 162</p>
+        </div>
+      </li>
+      <li>
+        <div class="sev" aria-hidden="true">5</div>
+        <div>
+          <h3>CORS is configured in a combination browsers reject</h3>
+          <p>The middleware sets <code>allow_origins=["*"]</code> together with
+            <code>allow_credentials=True</code>. The Fetch standard forbids a wildcard origin on a
+            credentialed request, so the credentialed path is not actually permitted despite the
+            configuration reading as fully open. Nothing in the app sends credentials today, which
+            is why it has not surfaced.</p>
+          <p class="cite">server/main.py:48–54</p>
+        </div>
+      </li>
+      <li>
+        <div class="sev" aria-hidden="true">6</div>
+        <div>
+          <h3>Smaller notes</h3>
+          <p><code>total_backlog_items</code> in the dashboard summary counts the unfiltered list,
+            so it stays constant while every neighbouring figure responds to the filters.
+            <code>useI18n.js</code> reads <code>localStorage</code> at module scope with no guard,
+            which throws during boot in a context where site data is blocked. Currency conversion
+            uses a hardcoded rate of 150.</p>
+          <p class="cite">server/main.py:200 · client/src/composables/useI18n.js:11 · client/src/utils/currency.js:3</p>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Running it</h2>
+    <p class="lede">Two processes, two terminals. <code>uv</code> is a prerequisite and is not
+      listed in the README — install it first if <code>uv</code> is not on your path.</p>
+    <pre class="runbox"><b># API — http://localhost:8001, docs at /docs</b>
+cd server
+uv run python main.py
+
+<b># Client — http://localhost:3000</b>
+cd client
+npm install
+npm run dev
+
+<b># Backend tests — 40, from the repo root</b>
+cd server
+uv run python -m pytest ../tests/backend -q</pre>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Compiled from the source at commit <code>27b0724</code> on branch <code>new_features</code>,
+      2026-09-15. Route behaviour, the six missing endpoints and the 40 passing tests were
+      verified against both servers running locally, and the two silent failures were reproduced
+      in the browser console on a clean dashboard load; line references were resolved at that
+      commit and will drift as the files change.</p>
+  </div>
+</footer>
+
+</body>
+</html>
