@@ -73,15 +73,35 @@ class TestDemandEndpoints:
         # Check for the new items we added
         skus = [item["item_sku"] for item in data]
 
-        # Should have Temperature Sensor Module and Logic Controller Board
-        assert "SNR-420" in skus, "Missing Temperature Sensor Module"
-        assert "CTL-330" in skus, "Missing Logic Controller Board"
+        # Should have Light Dependent Resistor and Stepper Motor NEMA 17
+        assert "LDR-208" in skus, "Missing Light Dependent Resistor"
+        assert "STP-303" in skus, "Missing Stepper Motor NEMA 17"
 
         # Verify they are marked as stable
         for item in data:
-            if item["item_sku"] in ["SNR-420", "CTL-330"]:
+            if item["item_sku"] in ["LDR-208", "STP-303"]:
                 assert item["trend"].lower() == "stable", \
                     f"New item {item['item_name']} should have stable trend"
+
+    def test_demand_forecast_skus_exist_in_inventory(self, client):
+        """Test that every forecast references a stocked SKU.
+
+        Forecasts used to reference an abandoned product catalog, so only 1 of 9
+        joined to inventory. That silently emptied the Demand view under any
+        warehouse/category filter and left restock recommendations unpriceable,
+        since unit_cost lives only on inventory.
+        """
+        forecasts = client.get("/api/demand").json()
+        inventory = client.get("/api/inventory").json()
+
+        stocked = {item["sku"]: item["name"] for item in inventory}
+        orphaned = [f["item_sku"] for f in forecasts if f["item_sku"] not in stocked]
+
+        assert not orphaned, f"Forecast SKUs absent from inventory: {orphaned}"
+
+        # Names should agree with inventory so both views label the item the same way
+        for forecast in forecasts:
+            assert forecast["item_name"] == stocked[forecast["item_sku"]]
 
 
 class TestBacklogEndpoints:
