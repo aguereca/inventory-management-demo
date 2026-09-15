@@ -4,6 +4,7 @@ export default {
     overview: '概要',
     inventory: '在庫',
     orders: '注文',
+    restocking: '再入荷',
     finance: '財務',
     demandForecast: '需要予測',
     companyName: '触媒コンポーネンツ',
@@ -112,6 +113,8 @@ export default {
     onTimeDelivery: '定時配達',
     itemsCount: '{count}件',
     quantity: '数量',
+    submittedOrders: '提出済み注文',
+    leadTimeDays: '{days}日',
     table: {
       orderNumber: '注文番号',
       orderId: '注文ID',
@@ -125,7 +128,8 @@ export default {
       totalValue: '合計金額',
       status: 'ステータス',
       expectedDelivery: '予定配達日',
-      actualDelivery: '実際の配達日'
+      actualDelivery: '実際の配達日',
+      leadTime: 'リードタイム'
     }
   },
 
@@ -188,6 +192,33 @@ export default {
     }
   },
 
+  // Restocking
+  restocking: {
+    title: '再入荷',
+    description: '推奨される再入荷数量を確認し、発注を送信します',
+    budget: '予算',
+    committedSpend: '確定支出額',
+    itemsSelected: '選択品目数',
+    remaining: '残り予算',
+    recommendedOrders: '推奨再入荷注文',
+    reasonBelowReorder: '再注文点以下',
+    reasonForecastShortfall: '予測不足',
+    placeOrder: '発注する',
+    submitting: '送信中...',
+    orderSubmitted: '注文{orderNumber}が正常に送信されました',
+    table: {
+      sku: 'SKU',
+      itemName: '品目名',
+      warehouse: '倉庫',
+      onHand: '手持在庫数',
+      reorderPoint: '再注文点',
+      qtyRecommended: '推奨数量',
+      unitCost: '単価',
+      lineTotal: '小計',
+      reason: '理由'
+    }
+  },
+
   // Filters
   filters: {
     timePeriod: '期間',
@@ -204,6 +235,7 @@ export default {
     shipped: '出荷済み',
     processing: '処理中',
     backordered: 'バックオーダー',
+    submitted: '提出済み',
     inStock: '在庫あり',
     lowStock: '在庫僅少',
     adequate: '適量'

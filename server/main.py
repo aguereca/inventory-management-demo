@@ -1,3 +1,6 @@
+import random
+from datetime import datetime, timedelta
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
@@ -120,6 +123,15 @@ class CreatePurchaseOrderRequest(BaseModel):
     expected_delivery_date: str
     notes: Optional[str] = None
 
+class RestockItem(BaseModel):
+    sku: str
+    quantity: int
+
+class CreateRestockOrderRequest(BaseModel):
+    items: List[RestockItem]
+    warehouse: Optional[str] = None
+    category: Optional[str] = None
+
 # API endpoints
 @app.get("/")
 def root():
@@ -160,6 +172,62 @@ def get_order(order_id: str):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return order
+
+@app.post("/api/orders/restock", response_model=Order, status_code=201)
+def create_restock_order(request: CreateRestockOrderRequest):
+    """Submit a restocking order and add it to the orders collection"""
+    if not request.items:
+        raise HTTPException(status_code=400, detail="At least one item is required")
+
+    line_items = []
+    for entry in request.items:
+        if entry.quantity < 1:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Quantity for {entry.sku} must be at least 1"
+            )
+        item = next((i for i in inventory_items if i["sku"] == entry.sku), None)
+        if not item:
+            raise HTTPException(status_code=400, detail=f"Unknown SKU: {entry.sku}")
+        line_items.append({
+            "sku": item["sku"],
+            "name": item["name"],
+            "quantity": entry.quantity,
+            "unit_price": item["unit_cost"]
+        })
+
+    order_date = datetime.now()
+    # Mirror the 7-14 day window generate_data.py used for the existing 250 orders,
+    # so a submitted order's lead time is indistinguishable from historical ones.
+    expected_delivery = order_date + timedelta(days=random.randint(7, 14))
+
+    next_id = max(int(order["id"]) for order in orders) + 1
+
+    # An order can span several warehouses and categories, but apply_filters compares
+    # item.get('warehouse') against the selected value — a None here would make the
+    # order vanish from the Orders view whenever a filter is active. Fall back to the
+    # largest line item so the order is always attributed somewhere concrete.
+    largest = max(line_items, key=lambda i: i["quantity"] * i["unit_price"])
+    fallback = next(i for i in inventory_items if i["sku"] == largest["sku"])
+
+    new_order = {
+        "id": str(next_id),
+        "order_number": f"ORD-{order_date.year}-{next_id:04d}",
+        "customer": "Internal Restock",
+        "items": line_items,
+        "status": "Submitted",
+        "warehouse": request.warehouse or fallback["warehouse"],
+        "category": request.category or fallback["category"],
+        "order_date": order_date.strftime("%Y-%m-%dT%H:%M:%S"),
+        "expected_delivery": expected_delivery.strftime("%Y-%m-%dT%H:%M:%S"),
+        "total_value": round(sum(i["quantity"] * i["unit_price"] for i in line_items), 2),
+        "actual_delivery": None
+    }
+
+    # In-place append: main.py and mock_data.py share this list object, so this is
+    # visible to every later GET. Rebinding (orders = orders + [...]) would not be.
+    orders.append(new_order)
+    return new_order
 
 @app.get("/api/demand", response_model=List[DemandForecast])
 def get_demand_forecasts():
