@@ -51,6 +51,7 @@
             <option value="shipped">{{ t('status.shipped') }}</option>
             <option value="processing">{{ t('status.processing') }}</option>
             <option value="backordered">{{ t('status.backordered') }}</option>
+            <option value="submitted">{{ t('status.submitted') }}</option>
           </select>
         </div>
       </div>

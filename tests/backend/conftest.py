@@ -12,6 +12,22 @@ server_path = Path(__file__).parent.parent.parent / "server"
 sys.path.insert(0, str(server_path))
 
 from main import app
+from mock_data import orders
+
+
+@pytest.fixture(autouse=True)
+def restore_mock_data():
+    """Undo any write a test makes to the shared mock data.
+
+    `main.py` binds the same list objects that `mock_data.py` created at import,
+    and conftest imports `app` once for the whole session — so a POST handler's
+    `orders.append(...)` would otherwise persist into every test that runs after
+    it. Restore via slice assignment, not rebinding: `orders = saved` would only
+    rebind this module's name and leave the list `main.py` reads untouched.
+    """
+    saved = list(orders)
+    yield
+    orders[:] = saved
 
 
 @pytest.fixture
